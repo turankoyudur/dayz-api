@@ -9,6 +9,27 @@ class ApiBridgeService
     protected float m_SnapshotAcc;
     protected float m_CommandAcc;
     protected bool m_Inited;
+    protected bool m_ExtensionEnabled;
+
+    // Some DayZ builds expose CallExtension only on DayZGame (not on the CGame base type).
+    // Use a small wrapper so the rest of the code stays simple.
+    protected void CallApiBridgeExtension(string cmd)
+    {
+        if (!m_ExtensionEnabled)
+            return;
+
+        DayZGame dzg = DayZGame.Cast(GetGame());
+        if (!dzg)
+        {
+            Print("[ApiBridge] DayZGame cast failed; cannot call extension");
+            return;
+        }
+
+        string extOut = "";
+        dzg.CallExtension(extOut, "ApiBridge", cmd);
+        if (extOut != "")
+            Print("[ApiBridge] extension out=" + extOut);
+    }
 
     static ApiBridgeService Get()
     {
@@ -27,17 +48,18 @@ class ApiBridgeService
         m_Config = new ApiBridgeConfig();
         m_Config.LoadOrCreate();
 
-        Print("[ApiBridge] profilePath=" + GetGame().GetProfilePath());
+        // NOTE: Some DayZ script builds do not expose CGame.GetProfilePath().
+        // We only rely on $profile: for file IO; logging absolute paths is optional.
         Print("[ApiBridge] cfgPath=" + ApiBridgeConfig.ConfigPath());
         Print("[ApiBridge] cfgExists=" + FileExist(ApiBridgeConfig.ConfigPath()).ToString());
 
-        if (m_Config.EnableExtension == 1)
+        m_ExtensionEnabled = (m_Config && m_Config.EnableExtension == 1);
+        if (m_ExtensionEnabled)
         {
-            string extOut = "";
-            // Best effort init; ignore failures
-            string arg = "init|" + GetGame().GetProfilePath() + "|" + m_Config.BindIp + "|" + m_Config.Port.ToString() + "|" + m_Config.ApiKey;
-            GetGame().CallExtension(extOut, "ApiBridge", arg);
-            Print("[ApiBridge] extension init out=" + extOut);
+            // Best effort init; ignore failures.
+            // Extension resolves the profiles directory by parsing server command line (-profiles=...)
+            string arg = "init|" + m_Config.BindIp + "|" + m_Config.Port.ToString() + "|" + m_Config.ApiKey;
+            CallApiBridgeExtension(arg);
         }
 
         // ensure files exist
@@ -54,8 +76,7 @@ class ApiBridgeService
         if (!m_Inited)
             return;
 
-        string extOut = "";
-        GetGame().CallExtension(extOut, "ApiBridge", "shutdown");
+        CallApiBridgeExtension("shutdown");
         m_Inited = false;
     }
 

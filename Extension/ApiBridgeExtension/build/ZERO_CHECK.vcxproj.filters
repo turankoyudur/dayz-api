@@ -1,13 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <CustomBuild Include="C:\Users\turan\OneDrive\Desktop\dayz_apibridge_mod\Extension\ApiBridgeExtension\build\CMakeFiles\7a90c51898341c5b7d92bb70c8652494\generate.stamp.rule">
+    <CustomBuild Include="C:\github\dayz-api\dayz-api\Extension\ApiBridgeExtension\build\CMakeFiles\2a10b37893d72b64462d03808bf4b95b\generate.stamp.rule">
       <Filter>CMake Rules</Filter>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CMake Rules">
-      <UniqueIdentifier>{A159D227-3D9E-3FD8-AAF4-B60C22AE296C}</UniqueIdentifier>
+      <UniqueIdentifier>{C813D1AD-6280-3299-A5CD-A2678E6194AB}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

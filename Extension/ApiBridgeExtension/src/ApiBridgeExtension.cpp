@@ -15,6 +15,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <fstream>
+#include <filesystem>
 #include <mutex>
 #include <sstream>
 #include <string>
@@ -35,6 +36,67 @@ static std::string join_path(const std::string& a, const std::string& b) {
     char last = a.back();
     if (last == '\\' || last == '/') return a + b;
     return a + "\\" + b;
+}
+
+static std::string resolve_profiles_dir_from_cmdline() {
+    std::string profilesArg;
+
+#ifdef _WIN32
+    int argc = 0;
+    LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    if (argv) {
+        for (int i = 0; i < argc; i++) {
+            std::wstring w = argv[i] ? argv[i] : L"";
+            std::string a(w.begin(), w.end());
+            if (a.rfind("-profiles=", 0) == 0) {
+                profilesArg = a.substr(std::string("-profiles=").size());
+                break;
+            }
+            if (a == "-profiles" && i + 1 < argc) {
+                std::wstring w2 = argv[i + 1] ? argv[i + 1] : L"";
+                profilesArg = std::string(w2.begin(), w2.end());
+                break;
+            }
+        }
+        LocalFree(argv);
+    }
+#else
+    // Linux: /proc/self/cmdline is NUL-separated argv
+    std::ifstream f("/proc/self/cmdline", std::ios::binary);
+    if (f) {
+        std::string buf((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        std::vector<std::string> args;
+        std::string cur;
+        for (char c : buf) {
+            if (c == '\0') {
+                if (!cur.empty()) args.push_back(cur);
+                cur.clear();
+            } else cur.push_back(c);
+        }
+        if (!cur.empty()) args.push_back(cur);
+
+        for (size_t i = 0; i < args.size(); i++) {
+            const std::string& a = args[i];
+            if (a.rfind("-profiles=", 0) == 0) {
+                profilesArg = a.substr(std::string("-profiles=").size());
+                break;
+            }
+            if (a == "-profiles" && i + 1 < args.size()) {
+                profilesArg = args[i + 1];
+                break;
+            }
+        }
+    }
+#endif
+
+    std::filesystem::path base = std::filesystem::current_path();
+    if (profilesArg.empty()) {
+        // Best-effort fallback. For predictable behavior, set -profiles=... on the server command line.
+        return (base / "profiles").string();
+    }
+    std::filesystem::path p = profilesArg;
+    if (p.is_absolute()) return p.string();
+    return (base / p).string();
 }
 
 static std::string read_file(const std::string& p) {
@@ -393,14 +455,27 @@ __declspec(dllexport) void RVExtension(char* output, int outputSize, const char*
 
     if (fn.rfind("init|", 0) == 0) {
         auto parts = split_pipe(fn);
-        // parts[0] = init, [1]=profilePath, [2]=bind, [3]=port, [4]=key
+        // Supported formats:
+        //  A) init|<profilePath>|<bind>|<port>|<key>  (legacy)
+        //  B) init|<bind>|<port>|<key>               (script can't call GetProfilePath)
+        std::lock_guard<std::mutex> lk(g_mu);
+
         if (parts.size() >= 5) {
-            std::lock_guard<std::mutex> lk(g_mu);
             g_profilePath = parts[1];
             g_bindIp = parts[2];
             g_port = std::atoi(parts[3].c_str());
             g_apiKey = parts[4];
+        } else if (parts.size() >= 4) {
+            g_profilePath = resolve_profiles_dir_from_cmdline();
+            g_bindIp = parts[1];
+            g_port = std::atoi(parts[2].c_str());
+            g_apiKey = parts[3];
+        } else {
+            // not enough args
+            std::snprintf(output, outputSize, "err|bad_init_args");
+            return;
         }
+
         if (!g_running.exchange(true)) {
             g_thread = std::thread(server_loop);
         }
