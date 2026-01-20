@@ -1,8 +1,7 @@
 // apibridgemissionserver.c (5_Mission)
-Print("[ApiBridge] MissionServer OnInit reached");
+
 modded class MissionServer
 {
-	Print("[ApiBridge] MissionServer OnInit reached");
     override void OnInit()
     {
         super.OnInit();
