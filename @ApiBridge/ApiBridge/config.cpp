@@ -5,8 +5,6 @@ class CfgPatches
         units[] = {};
         weapons[] = {};
         requiredVersion = 0.1;
-
-        // BURASI: Game/World/Mission YAZMA!
         requiredAddons[] = {"DZ_Data","DZ_Scripts"};
     };
 };
@@ -18,8 +16,6 @@ class CfgMods
         dir = "ApiBridge";
         name = "ApiBridge";
         type = "mod";
-
-        // BURASI: Game/World/Mission BURAYA
         dependencies[] = {"Game","World","Mission"};
 
         class defs
@@ -27,17 +23,17 @@ class CfgMods
             class gameScriptModule
             {
                 value = "";
-                files[] = {"ApiBridge/scripts/3_Game","scripts/3_Game"};
+                files[] = {"ApiBridge/scripts/3_Game"};
             };
             class worldScriptModule
             {
                 value = "";
-                files[] = {"ApiBridge/scripts/4_World","scripts/4_World"};
+                files[] = {"ApiBridge/scripts/4_World"};
             };
             class missionScriptModule
             {
                 value = "";
-                files[] = {"ApiBridge/scripts/5_Mission","scripts/5_Mission"};
+                files[] = {"ApiBridge/scripts/5_Mission"};
             };
         };
     };

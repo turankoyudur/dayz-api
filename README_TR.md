@@ -1,48 +1,87 @@
-# DayZ ApiBridge (Mod + Native Extension)
+# ApiBridge (DayZ Server Mod + HTTP API Extension)
 
-Bu paket, **DayZ server** icin HTTP API saglayan bir **mod + native extension** cozumudur.
-Node.js projen bu API'yi normal REST cagrilariyla kullanir (API Node tabanli degildir).
+Bu proje **@GameLabs benzeri** bir yapı sunar:
+- **DayZ server-side mod (Enforce Script)**: oyuncu/sunucu durumunu `$profile:ApiBridge/` altına JSON olarak yazar ve komutları uygular.
+- **Native Extension (DLL)**: DayZ tarafından `CallExtension()` ile başlatılır, **HTTP port** dinleyerek bu JSON'ları API olarak servis eder ve gelen POST komutlarını `commands.json` kuyruğuna yazar.
 
-## Mimari
-- Enforce Script (server-only mod):
-  - Ilk calismada `$profile:ApiBridge/apibridge.cfg` dosyasini otomatik olusturur (ApiKey dahil).
-  - Belirli araliklarla `$profile:ApiBridge/state.json` dosyasini yazar.
-  - HTTP uzerinden gelen edit istekleri icin `$profile:ApiBridge/commands.json` komutlarini okur ve uygular.
-  - Komut sonucunu `$profile:ApiBridge/responses.json` icine yazar.
+> Mod extension olmadan da çalışır: `apibridge.cfg`, `state.json` oluşturur ve `commands.json` dosyasını işleyebilir. HTTP için extension gereklidir.
 
-- Native Extension (DLL/SO):
-  - HTTP server acar.
-  - `state.json` / `responses.json` dosyalarini REST API olarak servis eder.
-  - Komut endpointlerinde `commands.json` icine komut objesi ekler.
+## Üretilen dosyalar
+Server açıldıktan sonra:
+```
+$profile:ApiBridge/apibridge.cfg
+$profile:ApiBridge/state.json
+$profile:ApiBridge/commands.json
+$profile:ApiBridge/responses.json
+```
 
-## HTTP API (v1)
-Header: `x-api-key: <apibridge.cfg icindeki ApiKey>`
+## HTTP API
+Header:
+- `x-api-key: <apibridge.cfg içindeki ApiKey>`
 
-- `GET /v1/health` -> {ok:true}
-- `GET /v1/status` -> extension durumu + dosya var mi
-- `GET /v1/state` -> state.json (oyuncu konumu, inventory, statlar, oyuncu sayisi)
-- `GET /v1/responses` -> responses.json (komut ciktilari)
+GET:
+- `GET /v1/health`
+- `GET /v1/status`
+- `GET /v1/state`
+- `GET /v1/responses`
 
-Komutlar (hepsi JSON body ister):
-- `POST /v1/players/{uid}/teleport` body: `{ "x":123, "y":0, "z":456 }`
-- `POST /v1/players/{uid}/inventory/add` body: `{ "type":"AmmoBox_545x39_20Rnd", "quantity":1 }`
-- `POST /v1/players/{uid}/inventory/remove` body: `{ "type":"BandageDressing", "count":2 }`
-- `POST /v1/players/{uid}/inventory/setQuantity` body: `{ "type":"WaterBottle", "quantity":100 }`
-- `POST /v1/players/{uid}/stats` body: `{ "health":80, "water":2000 }`  (sadece gonderdigin alanlar set edilir)
+POST:
+- `POST /v1/players/{uid}/teleport` body: `{ "x": 7500, "y": 0, "z": 7500 }`
+- `POST /v1/players/{uid}/inventory/add` body: `{ "type": "BandageDressing", "quantity": 2 }`
+- `POST /v1/players/{uid}/inventory/remove` body: `{ "type": "BandageDressing", "count": 1 }`
+- `POST /v1/players/{uid}/inventory/setQuantity` body: `{ "type": "WaterBottle", "quantity": 100 }`
+- `POST /v1/players/{uid}/stats` body: `{ "health": 80, "water": 2000 }`
 
-Komut donusu: `{ ok:true, accepted:true, id:"..." }`
-Sonucu almak icin `GET /v1/responses` okuyup `id` ile filtrele.
+## Kurulum
+### 1) Modu PBO yap
+Kaynak klasör:
+```
+@ApiBridge/ApiBridge/
+```
+DayZ Tools → Addon Builder ile **@ApiBridge/ApiBridge** klasöründen `ApiBridge.pbo` üret:
+```
+@ApiBridge/Addons/ApiBridge.pbo
+```
 
-## Kurulum Ozeti
-1) Extension'i build et (bkz: `Extension/ApiBridgeExtension/README_BUILD_TR.md`).
-2) DLL/SO dosyasini DayZ server exe yanina koy.
-3) Modu PBO yap ve `@ApiBridge` olarak sunucuya ekle.
-4) Server parametrelerine ekle:
-   - `-servermod=@ApiBridge`
-   - `-profiles=profiles`
-5) Server acilinca `profiles/ApiBridge/apibridge.cfg` olusur. ApiKey'i buradan al.
-6) API default: `http://127.0.0.1:8192/v1/state`
+### 2) Server'a kopyala
+Server root:
+```
+DayZServer_x64.exe
+@ApiBridge/
+  Addons/
+    ApiBridge.pbo
+```
 
-## Guvenlik
-Default BindIp `127.0.0.1` oldugu icin sadece ayni makineden erisilir.
-Dis dunyaya acacaksan firewall / reverse proxy ile mutlaka kisitla.
+### 3) Server parametreleri
+Örnek:
+```
+-servermod=@ApiBridge
+-profiles=D:\DayZProfiles
+```
+
+> ÖNEMLİ: Duplicate class hatası yaşamamak için prod'da `-filePatching` kullanma ve server'da PBO dışındaki `.c` script kopyalarını bırakma.
+
+## Extension (Windows)
+### Build
+Visual Studio 2022 + C++ workload + CMake kurulu olmalı.
+
+Developer Command Prompt:
+```
+cd Extension\ApiBridgeExtension
+mkdir build
+cd build
+cmake .. -G "Visual Studio 17 2022" -A x64
+cmake --build . --config Release
+```
+
+Çıktı:
+- `build\Release\ApiBridge_x64.dll`
+
+### Kurulum
+DLL'i `DayZServer_x64.exe` ile **aynı klasöre** koy.
+
+## Test (curl)
+```
+curl -H "x-api-key: <KEY>" http://127.0.0.1:8192/v1/status
+curl -H "x-api-key: <KEY>" http://127.0.0.1:8192/v1/state
+```

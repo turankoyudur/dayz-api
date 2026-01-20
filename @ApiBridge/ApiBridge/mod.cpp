@@ -1,0 +1,11 @@
+name = "ApiBridge";
+picture = "";
+logo = "";
+logoSmall = "";
+logoOver = "";
+tooltip = "ApiBridge";
+overview = "DayZ server bridge + HTTP API extension";
+action = "";
+author = "";
+authorID = "";
+version = "1.0";
