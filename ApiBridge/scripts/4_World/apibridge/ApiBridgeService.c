@@ -1,61 +1,108 @@
 class ApiBridgeService
 {
     ref ApiBridgeConfig m_Cfg;
-    float m_Accum;
+    ref ApiBridgeStateCollector m_Collector;
+    ref ApiBridgeCommandProcessor m_CommandProc;
+
+    float m_SnapshotAccum;
+    float m_CommandAccum;
+
+    // Node <-> mod connectivity (updated when node_heartbeat.json is read)
+    string m_LastNodeId;
+    string m_LastNodeNonce;
+    int m_LastNodeSeenServerTimeMs;
 
     void ApiBridgeService()
     {
         m_Cfg = new ApiBridgeConfig;
         ApiBridgeFile.LoadOrCreateConfig(m_Cfg);
-        m_Accum = 0;
+
+        m_Collector = new ApiBridgeStateCollector(m_Cfg);
+        m_CommandProc = new ApiBridgeCommandProcessor(m_Cfg);
+
+        m_SnapshotAccum = 0;
+        m_CommandAccum = 0;
+
+        m_LastNodeId = "";
+        m_LastNodeNonce = "";
+        m_LastNodeSeenServerTimeMs = 0;
+
         Print("[ApiBridge] Initialized. Config: " + AB_CFG_PATH);
     }
 
     void OnUpdate(float timeslice)
     {
-        m_Accum += timeslice;
-        if (m_Accum < m_Cfg.SnapshotIntervalSec)
-            return;
+        m_SnapshotAccum = m_SnapshotAccum + timeslice;
+        m_CommandAccum = m_CommandAccum + timeslice;
 
-        m_Accum = 0;
-        WriteSnapshot();
+        if (m_SnapshotAccum >= m_Cfg.SnapshotIntervalSec)
+        {
+            m_SnapshotAccum = 0;
+            WriteSnapshot();
+        }
+
+        if (m_CommandAccum >= m_Cfg.CommandPollIntervalSec)
+        {
+            m_CommandAccum = 0;
+            CheckNodeHeartbeat();
+            if (m_CommandProc)
+                m_CommandProc.Tick();
+        }
     }
 
     void WriteSnapshot()
     {
-        ref ApiBridgeStateSnapshot state = new ApiBridgeStateSnapshot;
-        state.world = GetGame().GetWorldName();
-        state.serverTimeMs = GetGame().GetTime();
+        if (!m_Collector)
+            return;
 
-        array<Man> players = new array<Man>;
-        GetGame().GetPlayers(players);
-        state.playerCount = players.Count();
+        ApiBridgeStateSnapshot state = m_Collector.Collect();
 
-        for (int i = 0; i < players.Count(); i++)
+        // Attach link-check metadata
+        if (state && state.bridge)
         {
-            PlayerBase pb = PlayerBase.Cast(players.Get(i));
-            if (!pb) continue;
-
-            PlayerIdentity id = pb.GetIdentity();
-
-            ref ApiBridgePlayerSnapshot ps = new ApiBridgePlayerSnapshot;
-            ps.pos = pb.GetPosition();
-            ps.health = pb.GetHealth("", "");
-
-            if (id)
-            {
-                ps.name = id.GetName();
-                ps.id = id.GetId();
-            }
-            else
-            {
-                ps.name = "<noid>";
-                ps.id = "";
-            }
-
-            state.players.Insert(ps);
+            state.bridge.modVersion = "filebridge-v2.1";
+            state.bridge.lastStateWriteServerTimeMs = GetGame().GetTime();
+            state.bridge.lastNodeSeenServerTimeMs = m_LastNodeSeenServerTimeMs;
+            state.bridge.lastNodeId = m_LastNodeId;
+            state.bridge.lastNodeNonce = m_LastNodeNonce;
         }
 
         ApiBridgeFile.SaveState(state);
+
+        // Also write a small heartbeat file that Node can monitor
+        WriteBridgeHeartbeat();
+
+        if (m_Cfg.LogLevel >= 2)
+            Print("[ApiBridge] state.json updated. players=" + state.playerCount.ToString());
+    }
+
+    void CheckNodeHeartbeat()
+    {
+        ApiBridgeNodeHeartbeat hb;
+        if (!ApiBridgeFile.TryLoadNodeHeartbeat(hb))
+            return;
+
+        if (!hb)
+            return;
+        if (hb.apiKey != m_Cfg.ApiKey)
+            return;
+
+        m_LastNodeId = hb.nodeId;
+        m_LastNodeNonce = hb.nonce;
+        m_LastNodeSeenServerTimeMs = GetGame().GetTime();
+
+        if (m_Cfg.LogLevel >= 3)
+            Print("[ApiBridge] node_heartbeat seen. nodeId=" + m_LastNodeId);
+    }
+
+    void WriteBridgeHeartbeat()
+    {
+        ApiBridgeBridgeHeartbeat bh = new ApiBridgeBridgeHeartbeat();
+        bh.modVersion = "filebridge-v2.1";
+        bh.serverTimeMs = GetGame().GetTime();
+        bh.lastNodeSeenServerTimeMs = m_LastNodeSeenServerTimeMs;
+        bh.nodeId = m_LastNodeId;
+        bh.nonceEcho = m_LastNodeNonce;
+        ApiBridgeFile.SaveBridgeHeartbeat(bh);
     }
 };

@@ -1,0 +1,13 @@
+{
+  "commands": [
+    {
+      "id": "cmd-teleport-001",
+      "apiKey": "PASTE_FROM_apibridge.cfg",
+      "type": "teleport",
+      "playerId": "STEAM64",
+      "x": 7500,
+      "y": 0,
+      "z": 7500
+    }
+  ]
+}

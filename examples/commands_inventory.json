@@ -1,0 +1,28 @@
+{
+  "commands": [
+    {
+      "id": "cmd-inv-add-001",
+      "apiKey": "PASTE_FROM_apibridge.cfg",
+      "type": "inv_add",
+      "playerId": "STEAM64",
+      "itemType": "BandageDressing",
+      "quantity": 1
+    },
+    {
+      "id": "cmd-inv-setqty-001",
+      "apiKey": "PASTE_FROM_apibridge.cfg",
+      "type": "inv_setqty",
+      "playerId": "STEAM64",
+      "itemType": "Ammo_556x45",
+      "quantity": 30
+    },
+    {
+      "id": "cmd-inv-remove-001",
+      "apiKey": "PASTE_FROM_apibridge.cfg",
+      "type": "inv_remove",
+      "playerId": "STEAM64",
+      "itemType": "BandageDressing",
+      "count": 1
+    }
+  ]
+}
