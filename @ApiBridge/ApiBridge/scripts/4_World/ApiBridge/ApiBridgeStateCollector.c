@@ -90,7 +90,11 @@ class ApiBridgeStateCollector
             it.quantity = GetItemQuantity(item);
 
             EntityAI parent = EntityAI.Cast(item.GetHierarchyParent());
-            it.parentType = parent ? parent.GetType() : "";
+			// Avoid ternary operator for broad DayZ Enforce Script compatibility
+			if (parent)
+				it.parentType = parent.GetType();
+			else
+				it.parentType = "";
             it.location = GetItemLocation(player, item);
 
             ps.inventory.Insert(it);

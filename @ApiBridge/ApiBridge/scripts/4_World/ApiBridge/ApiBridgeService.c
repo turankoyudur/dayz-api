@@ -69,8 +69,16 @@ class ApiBridgeService
         m_SnapshotAcc += timeslice;
         m_CommandAcc += timeslice;
 
-        float snapshotEvery = (m_Config && m_Config.SnapshotIntervalMs > 0) ? (m_Config.SnapshotIntervalMs / 1000.0) : 1.0;
-        float commandEvery  = (m_Config && m_Config.CommandPollIntervalMs > 0) ? (m_Config.CommandPollIntervalMs / 1000.0) : 0.25;
+		// Avoid ternary operator for broad DayZ Enforce Script compatibility
+		float snapshotEvery = 1.0;
+		float commandEvery = 0.25;
+		if (m_Config)
+		{
+			if (m_Config.SnapshotIntervalMs > 0)
+				snapshotEvery = m_Config.SnapshotIntervalMs / 1000.0;
+			if (m_Config.CommandPollIntervalMs > 0)
+				commandEvery = m_Config.CommandPollIntervalMs / 1000.0;
+		}
 
         if (m_SnapshotAcc >= snapshotEvery)
         {

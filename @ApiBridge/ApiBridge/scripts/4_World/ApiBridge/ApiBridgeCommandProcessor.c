@@ -173,7 +173,16 @@ class ApiBridgeCommandProcessor
         foreach (ApiBridgeCommand cmd : batch.commands)
         {
             ApiBridgeCommandResult r = new ApiBridgeCommandResult();
-            r.id = cmd ? cmd.id : "";
+			// Enforce Script does not support the C-style ternary operator on some DayZ builds.
+			// Use an explicit null check for broad version compatibility.
+			if (cmd)
+			{
+				r.id = cmd.id;
+			}
+			else
+			{
+				r.id = "";
+			}
 
             string msg;
             bool success = ApplyCommand(cmd, msg);
