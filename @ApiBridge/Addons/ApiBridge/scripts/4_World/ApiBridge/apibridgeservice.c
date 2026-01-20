@@ -20,12 +20,12 @@ class ApiBridgeService
         m_Inited = true;
 
         ApiBridgeConfig.LoadOrCreate();
-		m_Config = new ApiBridgeConfig();
-m_Config.LoadOrCreate();
 
-Print("[ApiBridge] profilePath=" + GetGame().GetProfilePath());
-Print("[ApiBridge] cfgPath=" + ApiBridgeConfig.ConfigPath());
-Print("[ApiBridge] cfgExists=" + FileExist(ApiBridgeConfig.ConfigPath()).ToString());
+        Print("[ApiBridge] profilePath=" + GetGame().GetProfilePath());
+        Print("[ApiBridge] cfgPath=" + ApiBridgeConfig.CfgPath());
+        Print("[ApiBridge] cfgExists=" + FileExist(ApiBridgeConfig.CfgPath()).ToString());
+        Print("[ApiBridge] jsonCfgPath=" + ApiBridgeConfig.ConfigJsonPath());
+        Print("[ApiBridge] jsonCfgExists=" + FileExist(ApiBridgeConfig.ConfigJsonPath()).ToString());
         ApiBridgeConfig.EnsureDir();
 
         // write initial snapshots
