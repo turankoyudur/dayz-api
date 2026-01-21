@@ -1,41 +1,68 @@
-# ApiBridge (File Bridge) - Kurulum ve Kullanim
+# ApiBridge (File-Based) – DayZ Sunucu Yönetim Köprüsü
 
-Bu paket, DayZ sunucusunda harici bir servise (Node.js dahil) veri aktarabilmek icin `$profile` altina JSON dosyalari yazan ve disaridan komut alabilen, minimum ve uyumlu bir DayZ server modudur.
+Bu mod, DayZ sunucu içinden **$profile:ApiBridge/** dizinine durum dosyaları yazar ve aynı dizinden **commands.json** okuyarak komut çalıştırır.
 
-## Ne yapar?
-- Ilk calismada `$profile:\ApiBridge\apibridge.cfg` olusturur (JSON formatinda, uzantisi .cfg).
-- Periyodik olarak `$profile:\ApiBridge\state.json` dosyasina sunucu + oyuncu snapshot yazar:
-  - oyuncu konumu
-  - health/blood/shock
-  - envanter listesi (type, quantity, location)
-- Disaridan `$profile:\ApiBridge\commands.json` ile komut alir ve uygular.
-- Komut sonuclarini `$profile:\ApiBridge\command_results.json` dosyasina yazar.
+- HTTP/RCon yok.
+- Windows ve Linux dedicated server’da çalışacak şekilde tasarlanmıştır.
 
-## Dosyalar
-- `apibridge.cfg` : Config (ApiKey, interval'lar)
-- `state.json` : Snapshot
-- `commands.json` : Node.js yazacak, mod okuyup silecek
-- `command_results.json` : Mod yazacak
+## Üretilen dosyalar (server -profiles altında)
 
-## 1) PBO build (DayZ Tools)
-1. DayZ Tools -> Addon Builder ac.
-2. `ApiBridge/` klasorunu (workdrive) Source olarak sec.
-3. Output olarak `@ApiBridge/Addons/ApiBridge.pbo` hedefini ver.
-4. Build et.
+- `apibridge.cfg` – ayarlar + ApiKey
+- `state.json` – sunucu + oyuncu snapshot (periyodik)
+- `link.json` – Node heartbeat/bağlantı durumu
+- `results.json` – son komutların sonuçları
+- `commands.json` – dış araç (Node) tarafından yazılır, mod tüketir
 
-## 2) Sunucuya kurulum
-1. `@ApiBridge` klasorunu sunucuya kopyala.
-2. `@ApiBridge/Addons/ApiBridge.pbo` var mi kontrol et.
-3. Server start parametrelerine ekle:
-   - Sadece server tarafi icin onerilen: `-serverMod=@ApiBridge`
-   - Profil yolu icin onerilen: `-profiles=profiles`
+## Kurulum
 
-> Not: Test ederken `-filePatching` kapali tutman daha guvenli (cift derleme hatalarini engeller).
+### 1) PBO build
+DayZ Tools > **Addon Builder** ile:
 
-## 3) Dogrulama
-Server acildiktan sonra su dosyalar olusmali:
-- `profiles/ApiBridge/apibridge.cfg`
-- `profiles/ApiBridge/state.json`
+- Source directory: `ApiBridge/Scripts`
+- Output: `@ApiBridge/addons/apibridge.pbo`
 
-## 4) Node.js entegrasyonu
-`INTEGRATION_NODE_TR.md` dosyasini oku.
+> Linux için `@ApiBridge/addons` ve PBO adı **küçük harf** olmalı.
+
+### 2) Sunucuya kopyala
+Sunucuya aşağıdaki yapıyı koy:
+
+```
+@ApiBridge/
+  addons/
+    apibridge.pbo
+  mod.cpp
+  meta.cpp
+```
+
+### 3) Server parametreleri
+Örnek:
+
+- Windows:
+  ```
+  DayZServer_x64.exe -config=serverDZ.cfg -profiles=profiles -mod=@ApiBridge
+  ```
+
+- Linux:
+  ```
+  ./DayZServer -config=serverDZ.cfg -profiles=profiles -mod=@apibridge
+  ```
+
+### 4) ApiKey ayarla
+Sunucuyu 1 kez çalıştır.
+
+`profiles/ApiBridge/apibridge.cfg` oluşacak.
+
+`ApiKey` değerini değiştir (Node da aynı key’i kullanmalı).
+
+## Komutlar
+Desteklenen komutlar (v0.1.0):
+
+- `ping`
+- `server.status`
+- `server.message`
+- `player.kick`
+- `ban.add` / `ban.remove` (soft-ban)
+- `server.restart`
+- `server.shutdown`
+
+Detaylı şema için: **INTEGRATION_NODE_TR.md**

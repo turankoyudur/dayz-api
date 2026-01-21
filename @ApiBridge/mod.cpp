@@ -1,0 +1,10 @@
+name = "ApiBridge";
+picture = "";
+logoSmall = "";
+logo = "";
+logoOver = "";
+tooltip = "File-based API bridge for DayZ server";
+overview = "ApiBridge exports server/player state to $profile and consumes command files written by your external tools (Node.js etc.).";
+action = "";
+author = "ApiBridge";
+version = "0.1.0";

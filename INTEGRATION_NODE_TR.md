@@ -1,147 +1,166 @@
-# ApiBridge <-> Node.js Entegrasyon Rehberi (File Bridge)
+# ApiBridge ↔ Node.js Entegrasyon (Dosya Köprüsü)
 
-Bu mod DayZ sunucusunun `$profile:\ApiBridge\` klasoru altinda JSON dosyalari yazar/okur.
-Node.js projen HTTP API'yi kendisi servis eder (Express/Nest/Fastify vb.) ve veriyi bu dosyalardan alir.
+Bu entegrasyon **tamamen dosya üzerinden** çalışır:
 
-## Dosyalar
-DayZ modunun urettigi/okudugu dosyalar:
+- Node tarafı `commands.json` yazar.
+- DayZ mod, `commands.json` okur, işler, dosyayı siler (ack), `results.json` yazar.
+- Mod ayrıca `state.json` ve `link.json` dosyalarını periyodik yazar.
 
-- `apibridge.cfg` : Mod konfigurasyonu (JSON, uzanti .cfg)
-- `state.json` : Sunucu + oyuncu snapshot (konum, temel statlar, inventory)
-- `commands.json` : Node.js tarafinin yazdigi komutlar (mod okur ve siler)
-- `command_results.json` : Modun yazdigi komut sonuclari
+> Not: Node uygulamanız DayZ sunucuyla aynı makinede çalışmıyorsa, bu dizine erişim için SMB/NFS paylaşımı veya sunucuda çalışan küçük bir “agent” gerekir.
 
-Baglanti/iletisim kontrolu icin ek dosyalar:
-- `node_heartbeat.json` : Node.js'in yazdigi heartbeat (mod okur)
-- `bridge_heartbeat.json` : Modun yazdigi heartbeat (Node.js okur)
+## Dosya yolları
+Hepsi **server -profiles** altında oluşur:
 
-Klasor yolu:
-- Server'inda `-profiles=D:\DayZProfiles` verdiysen:
-  - `D:\DayZProfiles\ApiBridge\state.json`
+- `profiles/ApiBridge/apibridge.cfg`
+- `profiles/ApiBridge/commands.json`
+- `profiles/ApiBridge/results.json`
+- `profiles/ApiBridge/state.json`
+- `profiles/ApiBridge/node_heartbeat.json`
+- `profiles/ApiBridge/link.json`
 
-## Guvenlik (ApiKey)
-`apibridge.cfg` icindeki `ApiKey` degeri, komutlarin kabul edilmesi icin zorunludur.
-Node tarafinda her komuta ayni `apiKey` alanini eklemelisin.
+## 1) Node → DayZ Komut Gönderme
 
-Heartbeat dosyalarinda da `apiKey` kullanilir.
+### commands.json şeması
 
-## Baglanti kontrolu (Node <-> Mod)
-Hedef: Node uygulamasi **modun aktif oldugunu** ve modun da **Node'u gordugunu** anlayabilsin.
-
-Bu sistem iki yonlu calisir:
-1) Node.js -> `node_heartbeat.json` yazar
-2) Mod -> `bridge_heartbeat.json` yazar (nonce echo ile)
-
-### node_heartbeat.json (Node.js yazar)
-Yol: `$profile:\ApiBridge\node_heartbeat.json`
-
-Ornek:
 ```json
 {
-  "apiKey": "CFG_ICINDEKI_KEY",
-  "nodeId": "api-server-1",
-  "nonce": "7f3e1c...",
-  "sentAt": "1700000000000"
-}
-```
-
-### bridge_heartbeat.json (Mod yazar)
-Yol: `$profile:\ApiBridge\bridge_heartbeat.json`
-
-Ornek:
-```json
-{
-  "modVersion": "filebridge-v2.1",
-  "serverTimeMs": 123456,
-  "lastNodeSeenServerTimeMs": 123450,
-  "nodeId": "api-server-1",
-  "nonceEcho": "7f3e1c..."
-}
-```
-
-### Link OK kriteri (onerilen)
-Node tarafinda link'i "OK" say:
-- `bridge_heartbeat.json` dosyasi son X saniye icinde guncellenmis olmali (X = 3 * SnapshotIntervalSec)
-- `nonceEcho`, son gonderdigin `nonce` ile ayni olmali
-
-Ek kontrol (iki yon): `state.json` icindeki `bridge.lastNodeSeenServerTimeMs` degerinin artiyor olmasi.
-
-### Atomik heartbeat yazma
-Node tarafinda yarim yazim riskini azaltmak icin ayni pattern:
-1) `node_heartbeat.tmp.json` yaz
-2) sonra `node_heartbeat.json` uzerine rename
-
-### Interval ayari
-Mod `node_heartbeat.json` dosyasini `CommandPollIntervalSec` periyodunda okur.
-Node'un 2 saniyede bir heartbeat atmasi icin `CommandPollIntervalSec` degerini 1.0-2.0 araliginda tutman onerilir.
-
-## state.json okuma
-Node projen periyodik olarak `state.json` okur.
-Oneri:
-- Dosyayi okurken JSON parse hatasi alirsan 50-100ms sonra tekrar dene (DayZ tam yazarken denk gelmis olabilirsin).
-
-Ornek (Node.js - pseudo):
-```js
-import fs from 'fs/promises';
-
-const STATE = 'D:/DayZProfiles/ApiBridge/state.json';
-
-async function readState() {
-  const txt = await fs.readFile(STATE, 'utf8');
-  return JSON.parse(txt);
-}
-```
-
-## commands.json yazma (komut gonderme)
-Node tarafinda komut gondermek icin `commands.json` dosyasini yazarsin.
-Mod dosyayi okur, komutlari isler ve `commands.json` dosyasini siler.
-
-### Atomik yazma (cok onemli)
-Yarim yazilmis JSON riskini azaltmak icin:
-1) once `commands.tmp.json` yaz
-2) sonra `commands.json` uzerine **rename** yap
-
-Windows'ta ayni dizin icinde rename atomik davranir.
-
-Ornek komut formati:
-```json
-{
+  "apiVersion": 1,
+  "apiKey": "CHANGE_ME",
   "commands": [
     {
-      "id": "cmd-001",
-      "apiKey": "CFG_ICINDEKI_KEY",
-      "type": "teleport",
-      "playerId": "STEAM64",
-      "x": 7500,
-      "y": 0,
-      "z": 7500
+      "id": "uuid-1",
+      "type": "server.message",
+      "message": "Merhaba!"
     }
   ]
 }
 ```
 
-## Desteklenen komut tipleri
-- `teleport` : x,y,z
-- `inv_add` : itemType, quantity
-- `inv_remove` : itemType, count
-- `inv_setqty` : itemType, quantity
-- `set_health` : value
-- `set_blood` : value
-- `set_shock` : value
+### Atomic write (çok önemli)
+DayZ mod dosyayı okurken yarım JSON görürse hata verebilir.
+Bu yüzden Node tarafında yazma işlemini **temp + rename** ile yap:
 
-## command_results.json okuma
-Komutun sonucunu almak icin Node tarafinda `command_results.json` okursun.
-Dosya her isleme turunda yeniden yazilir.
+1. `commands.json.tmp` yaz
+2. `fs.rename(tmp, commands.json)`
 
-Ornek sonuc:
+Mod, işledikten sonra `commands.json` dosyasını siler.
+Node yeni komut yazmadan önce `commands.json` yok mu diye kontrol et.
+
+## 2) DayZ → Node Sonuç Okuma
+
+### results.json şeması
+
 ```json
 {
+  "apiVersion": 1,
   "serverTimeMs": 123456,
   "results": [
-    {"id":"cmd-001","ok":true,"message":"ok"}
+    {
+      "id": "uuid-1",
+      "ok": true,
+      "error": "",
+      "data": "sent",
+      "serverState": null
+    }
   ]
 }
 ```
 
-Oneri:
-- Node API tarafinda `POST /cmd` -> komutu yaz -> `command_results.json` icinden ilgili `id` gorunene kadar kisa polling yap (ornegin 1-2sn).
+- `serverState` sadece `server.status` komutunda dolu döner.
+
+## 3) Durum Takibi
+
+### state.json
+`state.json` periyodik snapshot’tır (player list + temel stats).
+
+### link.json (bağlantı kontrolü)
+Node uygulaması “sunucu beni görüyor mu?” kontrolü için `node_heartbeat.json` yazar.
+Mod bunu okuyup `link.json` içine yazar.
+
+#### node_heartbeat.json
+```json
+{
+  "t": 123456,
+  "nonce": "random-string"
+}
+```
+
+#### link.json
+```json
+{
+  "apiVersion": 1,
+  "serverTimeMs": 123789,
+  "lastNodeHeartbeatMs": 123456,
+  "lastNodeNonce": "random-string",
+  "status": "linked"
+}
+```
+
+`status`:
+- `waiting_node`: henüz node_heartbeat.json yok
+- `linked`: mod node heartbeat’i okuyor
+
+## 4) Örnek Komutlar
+
+### Sunucu durumu
+```json
+{ "id": "1", "type": "server.status" }
+```
+
+### Mesaj yayınla
+```json
+{ "id": "2", "type": "server.message", "message": "Restart 5 dk sonra" }
+```
+
+### Oyuncu kick
+```json
+{ "id": "3", "type": "player.kick", "playerPlainId": "7656119..." }
+```
+
+### Soft-ban
+```json
+{ "id": "4", "type": "ban.add", "playerPlainId": "7656119..." }
+```
+
+### Restart / Shutdown
+```json
+{ "id": "5", "type": "server.restart" }
+{ "id": "6", "type": "server.shutdown" }
+```
+
+## 5) Node tarafı örnek pseudo-code
+
+```js
+import fs from "fs";
+import path from "path";
+
+const base = "C:/DayZServer/profiles/ApiBridge"; // örnek
+
+function writeAtomic(file, obj) {
+  const tmp = file + ".tmp";
+  fs.writeFileSync(tmp, JSON.stringify(obj, null, 2));
+  fs.renameSync(tmp, file);
+}
+
+function sendCommands(apiKey, commands) {
+  const commandsPath = path.join(base, "commands.json");
+  if (fs.existsSync(commandsPath)) return false; // ack bekle
+
+  const env = { apiVersion: 1, apiKey, commands };
+  writeAtomic(commandsPath, env);
+  return true;
+}
+
+function readJson(file) {
+  if (!fs.existsSync(file)) return null;
+  return JSON.parse(fs.readFileSync(file, "utf8"));
+}
+
+// bağlantı kontrolü
+function heartbeat() {
+  writeAtomic(path.join(base, "node_heartbeat.json"), {
+    t: Date.now() % 2147483647,
+    nonce: Math.random().toString(16).slice(2)
+  });
+}
+```

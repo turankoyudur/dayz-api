@@ -1,27 +1,18 @@
 class ApiBridgeConfig
 {
-    // Shared secret used by your external app (Node.js) to trust commands.
-    // Stored in $profile:\ApiBridge\apibridge.cfg
-    string ApiKey;
+	string ApiKey = "CHANGE_ME";
+	int PollIntervalMs = 250;          // how often commands.json is checked
+	int StateWriteIntervalMs = 1000;    // how often state.json is written
+	int LinkWriteIntervalMs = 1000;     // how often link.json is written
 
-    // How often to write state.json
-    int SnapshotIntervalSec;
+	bool EnableKick = true;
+	bool EnableRestart = true;
+	bool EnableShutdown = true;
 
-    // How often to poll commands.json
-    int CommandPollIntervalSec;
+	ref array<string> BanPlainIds = new array<string>; // soft-ban: will be disconnected on connect
 
-    // Safety limit for inventory enumeration
-    int MaxItemsPerPlayer;
-
-    // 0=quiet, 1=normal, 2=verbose
-    int LogLevel;
-
-    void SetDefaults()
-    {
-        ApiKey = ""; // generated on first run
-        SnapshotIntervalSec = 2;
-        CommandPollIntervalSec = 1;
-        MaxItemsPerPlayer = 250;
-        LogLevel = 1;
-    }
+	void EnsureDefaults()
+	{
+		if (!BanPlainIds) BanPlainIds = new array<string>;
+	}
 };
